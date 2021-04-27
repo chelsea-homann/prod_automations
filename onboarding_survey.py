@@ -41,11 +41,11 @@ def sftp_transfer(username, password, myHostname, filename):
     
     try:
         sftp.remove('/Home/unumqualtrics/PeopleAnalytics/Workday/Out/' + filename)
-        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\' + filename, "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/" + filename)
+        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\' + filename, "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/" + filename)
         sftp.close()
         
     except Exception:
-        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\' + filename, "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/" + filename)
+        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\' + filename, "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/" + filename)
         sftp.close()
     
     return ssh.close()
@@ -61,14 +61,14 @@ def main():
     
 
     username = os.environ.get('WDUSER') 
-    password = 'Dina4166!@' #os.environ.get('WDPASSWORD')
+    password = os.environ.get('WDPASSWORD')
     
     myHostname = os.environ.get('SFTP_HOST') 
     myUsername = os.environ.get('SFTP_USER') 
     myPassword = os.environ.get('SFTP_PASSWORD')
     
     sender = 'do_not_reply@estevan.com'
-    recipients = ['elara@unum.com', 'cwymer@unum.com']
+    recipients = ['elara@unum.com', 'rstoner@unum.com']
     subject = 'Job Completed'
     body = 'Job # Onboarding Survey Completed!'
     
@@ -93,32 +93,28 @@ def main():
             day1_df = qual_df[qual_df['Hire_Date'] == (day1.strftime('%Y-%m-%d'))]
             day1_df['Day1_Launch_Date'] = day1.strftime('%m-%d-%Y')
                                          
-            day1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\DAY1_Onboarding.csv', index = False)
+            day1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\DAY1_Onboarding.csv', index = False)
                                          
         else:
             week1_df = qual_df[(qual_df['Hire_Date'] <= (week1.strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] >= ((week1 - timedelta(4)).strftime('%Y-%m-%d')))]
             week1_df['Week1_Launch_Date'] = week1.strftime('%m-%d-%Y')
-            week1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\WEEK1_Onboarding.csv', index = False)
+            week1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\WEEK1_Onboarding.csv', index = False)
         
-            #month1_df = qual_df[(qual_df['Hire_Date'] <= (week1.strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] >= (month1.strftime('%Y-%m-%d')))]
             month1_df = qual_df[(qual_df['Hire_Date'] >= ((month1 - timedelta(4)).strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] <= (month1.strftime('%Y-%m-%d')))]
             month1_df['Month1_Launch_Date'] = month1.strftime('%m-%d-%Y')
-            month1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\MONTH1_Onboarding.csv', index = False)
+            month1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\MONTH1_Onboarding.csv', index = False)
         
-            #month3_df = qual_df[(qual_df['Hire_Date'] <= (week1.strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] >= (month3.strftime('%Y-%m-%d')))]
             month3_df = qual_df[(qual_df['Hire_Date'] >= ((month3 - timedelta(4)).strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] <= (month3.strftime('%Y-%m-%d')))]
             month3_df['Month3_Launch_Date'] = month3.strftime('%m-%d-%Y')
-            month3_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\MONTH3_Onboarding.csv', index = False)
+            month3_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\MONTH3_Onboarding.csv', index = False)
         
-            #month6_df = qual_df[(qual_df['Hire_Date'] <= (week1.strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] >= (month6.strftime('%Y-%m-%d')))]
             month6_df = qual_df[(qual_df['Hire_Date'] >= ((month6 - timedelta(4)).strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] <= (month6.strftime('%Y-%m-%d')))]
             month6_df['Month6_Launch_Date'] = month6.strftime('%m-%d-%Y')
-            month6_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\MONTH6_Onboarding.csv', index = False)
+            month6_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\MONTH6_Onboarding.csv', index = False)
         
-            #year1_df = qual_df[(qual_df['Hire_Date'] <= (week1.strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] >= (year1.strftime('%Y-%m-%d')))]
             year1_df = qual_df[(qual_df['Hire_Date'] >= ((year1 - timedelta(4)).strftime('%Y-%m-%d'))) & (qual_df['Hire_Date'] <= (year1.strftime('%Y-%m-%d')))]
             year1_df['Year1_Launch_Date'] = year1.strftime('%m-%d-%Y')
-            year1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\YEAR1_Onboarding.csv', index = False)
+            year1_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\YEAR1_Onboarding.csv', index = False)
             
     except Exception as e:
         
@@ -142,7 +138,7 @@ def main():
             for i in files:
                 sftp_transfer(myUsername, myPassword, myHostname, i)
             for i in files:    
-                os.remove('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\leave_survey_automation\\' + i)
+                os.remove('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\onboarding_survey_automation\\' + i)
             
     except Exception as e:
         print('\nFile transfer incomplete')
