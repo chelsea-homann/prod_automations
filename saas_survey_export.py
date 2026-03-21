@@ -1,18 +1,18 @@
 """
-Qualtrics Survey Export
+SAAS Survey Export
 =======================
-Exports survey response data from the Qualtrics API, processes the results
+Exports survey response data from the SAAS API, processes the results
 (date formatting, column selection), and saves to a local CSV. Optionally
 emails the file to a distribution list.
 
-Uses the Qualtrics v3 Response Export API with polling for completion.
+Uses the SAAS v3 Response Export API with polling for completion.
 Supports proxy configuration for corporate networks.
 
 Environment Variables Required:
-    QUALTRICS_API_TOKEN  - Qualtrics API token
-    QUALTRICS_SURVEY_ID  - Survey ID (format: SV_xxxxxxxxxx)
-    QUALTRICS_DATACENTER - Qualtrics data center / org ID
-    QUALTRICS_FORMAT     - Export format: csv, tsv, or spss (default: csv)
+    SAAS_API_TOKEN  - SAAS API token
+    SAAS_SURVEY_ID  - Survey ID (format: SV_xxxxxxxxxx)
+    SAAS_DATACENTER - SAAS data center / org ID
+    SAAS_FORMAT     - Export format: csv, tsv, or spss (default: csv)
     PROXY_HTTP           - HTTP proxy URL (optional, e.g. http://proxy:8080)
     PROXY_HTTPS          - HTTPS proxy URL (optional)
     OUTPUT_DIR           - Directory to save exported CSV
@@ -25,7 +25,7 @@ Environment Variables Required:
     SKIP_ROWS            - Comma-separated row indices to skip on CSV read (e.g. "0,2")
 
 Usage:
-    python qualtrics_survey_export.py
+    python SAAS_survey_export.py
 """
 
 import sys
@@ -44,7 +44,7 @@ from email_notification import send_email
 def export_survey(api_token, survey_id, data_center, file_format,
                   use_labels=True, proxies=None):
     """
-    Export survey responses from Qualtrics API.
+    Export survey responses from SAAS API.
 
     Returns the extracted file content as bytes.
     """
@@ -54,7 +54,7 @@ def export_survey(api_token, survey_id, data_center, file_format,
     if not re.match(r'^SV_', survey_id):
         raise ValueError(f"surveyId must match ^SV_* (got '{survey_id}')")
 
-    base_url = f"https://{data_center}.az1.qualtrics.com/API/v3/surveys/{survey_id}/export-responses/"
+    base_url = f"https://{data_center}.az1.SAAS.com/API/v3/surveys/{survey_id}/export-responses/"
     headers = {
         "content-type": "application/json",
         "x-api-token": api_token,
@@ -79,7 +79,7 @@ def export_survey(api_token, survey_id, data_center, file_format,
         print(f'  Progress: {pct}% ({status})')
 
     if status == "failed":
-        raise RuntimeError("Qualtrics export failed")
+        raise RuntimeError("SAAS export failed")
 
     file_id = check_response.json()["result"]["fileId"]
 
@@ -97,10 +97,10 @@ def export_survey(api_token, survey_id, data_center, file_format,
 
 
 def main():
-    api_token = os.environ['QUALTRICS_API_TOKEN']
-    survey_id = os.environ['QUALTRICS_SURVEY_ID']
-    data_center = os.environ['QUALTRICS_DATACENTER']
-    file_format = os.environ.get('QUALTRICS_FORMAT', 'csv')
+    api_token = os.environ['SAAS_API_TOKEN']
+    survey_id = os.environ['SAAS_SURVEY_ID']
+    data_center = os.environ['SAAS_DATACENTER']
+    file_format = os.environ.get('SAAS_FORMAT', 'csv')
 
     output_dir = os.environ.get('OUTPUT_DIR', '.')
     output_prefix = os.environ.get('OUTPUT_PREFIX', 'survey_export')
@@ -126,7 +126,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # ---- Export survey ----
-    print('Starting Qualtrics survey export...')
+    print('Starting SAAS survey export...')
     zf, filenames = export_survey(api_token, survey_id, data_center, file_format,
                                   proxies=proxies)
 
@@ -164,7 +164,7 @@ def main():
     # ---- Email notification ----
     if email_recipients and email_recipients[0]:
         subject = f'{today_str} Survey Data Export'
-        body = 'Survey data export from Qualtrics is attached to this email.'
+        body = 'Survey data export from SAAS is attached to this email.'
         send_email(email_sender, email_recipients, subject, body,
                    attachment_name=output_filename, attachment_path=output_path)
         print('Email sent with attachment.')
