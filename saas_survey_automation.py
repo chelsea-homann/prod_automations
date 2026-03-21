@@ -1,22 +1,21 @@
 """
-Exit Survey Automation
+SAAS Survey Automation
 ======================
-Pulls terminated worker data from a Workday RaaS report, transforms column
-names for survey-platform ingestion, and uploads the CSV to a Qualtrics SFTP
+Pulls HRIS report, transforms data for SAAS-platform ingestion, and uploads the CSV to a SAAS SFTP
 server. Sends an email notification on success or failure.
 
-Supports both US and UK (or other regional) exit survey variants via the
+Supports both US and UK (or other regional) SAAS survey variants via the
 WD_REPORT_URL environment variable.
 
 Environment Variables Required:
-    WD_USERNAME      - Workday API username
-    WD_PASSWORD      - Workday API password
-    WD_REPORT_URL    - Full Workday RaaS custom report URL (use {start_dt} and {end_dt} placeholders)
+    WD_USERNAME      - HRIS API username
+    WD_PASSWORD      - HRIS API password
+    WD_REPORT_URL    - Full HRIS RaaS custom report URL (use {start_dt} and {end_dt} placeholders)
     SFTP_HOST        - SFTP server hostname
     SFTP_USER        - SFTP username
     SFTP_PASSWORD    - SFTP password
     SFTP_REMOTE_DIR  - Remote SFTP directory (e.g. /Home/account/Out/)
-    OUTPUT_FILENAME  - Name of the output CSV (e.g. exit_survey_participants.csv)
+    OUTPUT_FILENAME  - Name of the output CSV (e.g. SAAS_survey_participants.csv)
     SMTP_HOST        - SMTP server for email notifications
     SMTP_PORT        - SMTP port (default 25)
     EMAIL_SENDER     - Sender email address
@@ -25,7 +24,7 @@ Environment Variables Required:
     LOOKFORWARD_DAYS - Number of days to look forward (default 0; set >0 for UK variant)
 
 Usage:
-    python exit_survey_automation.py
+    python SAAS_survey_automation.py
 """
 
 import sys
@@ -40,12 +39,12 @@ from email_notification import send_email
 
 
 def build_report_url(base_url, start_dt, end_dt):
-    """Insert date parameters into the Workday report URL template."""
+    """Insert date parameters into the HRIS report URL template."""
     return base_url.format(start_dt=start_dt, end_dt=end_dt)
 
 
-def pull_workday_report(url, username, password):
-    """Pull a CSV report from Workday RaaS and return as a DataFrame."""
+def pull_HRIS_report(url, username, password):
+    """Pull a CSV report from HRIS RaaS and return as a DataFrame."""
     with requests.Session() as session:
         response = session.get(url, auth=(username, password))
         response.raise_for_status()
@@ -72,7 +71,7 @@ def sftp_upload(hostname, username, password, remote_dir, local_path, remote_fil
     ssh.close()
 
 
-# ---------- Default column rename mapping (Workday -> Survey Platform) ----------
+# ---------- Default column rename mapping (HRIS -> Survey Platform) ----------
 DEFAULT_COLUMN_RENAMES = {
     "FirstName": "First Name",
     "LastName": "Last Name",
@@ -107,7 +106,7 @@ def main():
     sftp_password = os.environ['SFTP_PASSWORD']
     sftp_remote_dir = os.environ.get('SFTP_REMOTE_DIR', '/Home/account/Out/')
 
-    output_filename = os.environ.get('OUTPUT_FILENAME', 'exit_survey_participants.csv')
+    output_filename = os.environ.get('OUTPUT_FILENAME', 'SAAS_survey_participants.csv')
     email_sender = os.environ.get('EMAIL_SENDER', 'noreply@example.com')
     email_recipients = os.environ.get('EMAIL_RECIPIENTS', '').split(',')
 
@@ -117,18 +116,18 @@ def main():
     start_dt = (date.today() - timedelta(lookback)).strftime('%Y-%m-%d')
     end_dt = (date.today() + timedelta(lookforward)).strftime('%Y-%m-%d')
 
-    subject = 'Exit Survey Job Completed'
-    body = 'Exit survey automation completed successfully.'
+    subject = 'SAAS Survey Job Completed'
+    body = 'SAAS survey automation completed successfully.'
 
-    # ---- Step 1: Pull report from Workday ----
+    # ---- Step 1: Pull report from HRIS ----
     try:
-        print('Pulling Workday report...')
+        print('Pulling HRIS report...')
         url = build_report_url(report_url, start_dt, end_dt)
-        df = pull_workday_report(url, wd_username, wd_password)
+        df = pull_HRIS_report(url, wd_username, wd_password)
         print(f'Report pulled: {len(df)} rows')
 
         # Add launch date column
-        df['Exit Survey Launch Date'] = date.today().strftime('%m-%d-%Y')
+        df['SAAS Survey Launch Date'] = date.today().strftime('%m-%d-%Y')
 
         # Drop original launch date if present
         if 'Survey_Launch_Date' in df.columns:
@@ -145,10 +144,10 @@ def main():
         print('CSV created.')
 
     except Exception as e:
-        print(f'\nWorkday report pull failed: {e}')
-        send_email(email_sender, email_recipients, 'Exit Survey Job Failed',
-                   f'Exit survey automation failed during report pull:\n{e}')
-        sys.exit(1)
+        print(f'\nHRIS report pull failed: {e}')
+        send_email(email_sender, email_recipients, 'SAAS Survey Job Failed',
+                   f'SAAS survey automation failed during report pull:\n{e}')
+        sys.SAAS(1)
 
     # ---- Step 2: SFTP upload ----
     try:
@@ -158,10 +157,10 @@ def main():
         print('SFTP transfer complete.')
     except Exception as e:
         print(f'\nSFTP transfer failed: {e}')
-        send_email(email_sender, email_recipients, 'Exit Survey Job Failed',
-                   f'Exit survey automation failed during SFTP transfer:\n{e}',
+        send_email(email_sender, email_recipients, 'SAAS Survey Job Failed',
+                   f'SAAS survey automation failed during SFTP transfer:\n{e}',
                    attachment_name=output_filename, attachment_path=local_path)
-        sys.exit(1)
+        sys.SAAS(1)
 
     # ---- Step 3: Cleanup and notify ----
     os.remove(local_path)
