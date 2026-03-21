@@ -69,31 +69,7 @@ def sftp_upload(hostname, username, password, remote_dir, local_path, remote_fil
 
     sftp.close()
     ssh.close()
-
-
-# ---------- Default column rename mapping (HRIS -> Survey Platform) ----------
-DEFAULT_COLUMN_RENAMES = {
-    "FirstName": "First Name",
-    "LastName": "Last Name",
-    "Unique_Identifier": "Unique Identifier",
-    "Employee_ID": "Employee ID",
-    "UserName": "User Name",
-    "Supervisory_Organization": "Supervisory Organization",
-    "Business_Area": "Business Area",
-    "Profile_Area_Division": "Profile Area Division",
-    "Consolidated_Area": "Consolidated Area",
-    "Hire_Date": "Hire Date",
-    "termination_date": "Termination Date",
-    "Termination_Reason": "Termination Reason",
-    "Job_Profile": "Job Profile",
-    "Time_in_Job_Profile": "Time in Job Profile",
-    "Job_Level": "Job Level",
-    "Ethnicity_Generic": "Ethnicity Generic",
-    "Worker_has_a_Disability": "Worker has a Disability",
-    "Worker_is_a_Veteran": "Worker is a Veteran",
-    "Potential_Rating": "Potential Rating",
-}
-
+    
 
 def main():
     # ---- Configuration from environment ----
