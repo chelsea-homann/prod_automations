@@ -1,114 +1,173 @@
-#!/usr/bin/env python
-# coding: utf-8
+"""
+Exit Survey Automation
+======================
+Pulls terminated worker data from a Workday RaaS report, transforms column
+names for survey-platform ingestion, and uploads the CSV to a Qualtrics SFTP
+server. Sends an email notification on success or failure.
 
+Supports both US and UK (or other regional) exit survey variants via the
+WD_REPORT_URL environment variable.
+
+Environment Variables Required:
+    WD_USERNAME      - Workday API username
+    WD_PASSWORD      - Workday API password
+    WD_REPORT_URL    - Full Workday RaaS custom report URL (use {start_dt} and {end_dt} placeholders)
+    SFTP_HOST        - SFTP server hostname
+    SFTP_USER        - SFTP username
+    SFTP_PASSWORD    - SFTP password
+    SFTP_REMOTE_DIR  - Remote SFTP directory (e.g. /Home/account/Out/)
+    OUTPUT_FILENAME  - Name of the output CSV (e.g. exit_survey_participants.csv)
+    SMTP_HOST        - SMTP server for email notifications
+    SMTP_PORT        - SMTP port (default 25)
+    EMAIL_SENDER     - Sender email address
+    EMAIL_RECIPIENTS - Comma-separated list of recipient emails
+    LOOKBACK_DAYS    - Number of days to look back for terminations (default 4)
+    LOOKFORWARD_DAYS - Number of days to look forward (default 0; set >0 for UK variant)
+
+Usage:
+    python exit_survey_automation.py
+"""
 
 import sys
-import requests
 import os
-import pandas as pd
 import io
+import tempfile
+import requests
+import pandas as pd
 import paramiko
-import UnumEmail
 from datetime import date, timedelta
+from email_notification import send_email
 
 
+def build_report_url(base_url, start_dt, end_dt):
+    """Insert date parameters into the Workday report URL template."""
+    return base_url.format(start_dt=start_dt, end_dt=end_dt)
 
 
-def us_exit_url_generator(start_dt, end_dt):
-    
-    url = 'https://services1.myworkday.com/ccx/service/customreport2/unum/C2HXT/Terminated_Worker_Details_for_Exit_Survey?Term_Date_On_After={0}-08%3A00&Term_Date_On_Before={1}-08%3A00&Supervisory_Organization%21WID=fad8c8a44c4510541494e34161d00311&Country%21WID=bc33aa3152ec42d4995f4791a106ed09&format=csv'.format(start_dt, end_dt)    
-    return url
+def pull_workday_report(url, username, password):
+    """Pull a CSV report from Workday RaaS and return as a DataFrame."""
+    with requests.Session() as session:
+        response = session.get(url, auth=(username, password))
+        response.raise_for_status()
+        decoded = response.content.decode('utf-8')
+    return pd.read_csv(io.StringIO(decoded))
 
 
-def wd_report_pull(url, username, password):
-    
-    with requests.Session() as s:
-        download = s.get(url, auth=(username, password))
-        decoded_content = download.content.decode('utf-8')
-        
-    return pd.read_csv(io.StringIO(decoded_content))
-
-def sftp_transfer(username, password, myHostname):
+def sftp_upload(hostname, username, password, remote_dir, local_path, remote_filename):
+    """Upload a local file to an SFTP server."""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(myHostname, username = username, password = password)
+    ssh.connect(hostname, username=username, password=password)
     sftp = ssh.open_sftp()
-    sftp.chdir('/Home/unumqualtrics/PeopleAnalytics/Workday/Out/')  # updated with new account
-    
-    try:
-        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\exit_survey_participants.csv', "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/exit_survey_participants.csv")
+    sftp.chdir(remote_dir)
 
-    except Exception:
-        sftp.put('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\exit_survey_participants.csv', "/Home/unumqualtrics/PeopleAnalytics/Workday/Out/exit_survey_participants.csv")
-    
-    return sftp.close()
+    remote_path = remote_dir.rstrip('/') + '/' + remote_filename
+    try:
+        sftp.remove(remote_path)
+    except FileNotFoundError:
+        pass
+    sftp.put(local_path, remote_path)
+
+    sftp.close()
+    ssh.close()
+
+
+# ---------- Default column rename mapping (Workday -> Survey Platform) ----------
+DEFAULT_COLUMN_RENAMES = {
+    "FirstName": "First Name",
+    "LastName": "Last Name",
+    "Unique_Identifier": "Unique Identifier",
+    "Employee_ID": "Employee ID",
+    "UserName": "User Name",
+    "Supervisory_Organization": "Supervisory Organization",
+    "Business_Area": "Business Area",
+    "Profile_Area_Division": "Profile Area Division",
+    "Consolidated_Area": "Consolidated Area",
+    "Hire_Date": "Hire Date",
+    "termination_date": "Termination Date",
+    "Termination_Reason": "Termination Reason",
+    "Job_Profile": "Job Profile",
+    "Time_in_Job_Profile": "Time in Job Profile",
+    "Job_Level": "Job Level",
+    "Ethnicity_Generic": "Ethnicity Generic",
+    "Worker_has_a_Disability": "Worker has a Disability",
+    "Worker_is_a_Veteran": "Worker is a Veteran",
+    "Potential_Rating": "Potential Rating",
+}
 
 
 def main():
-    
-    start_dt = (date.today() - timedelta(4)).strftime('%Y-%m-%d')
-    end_dt = (date.today()).strftime('%Y-%m-%d')
-    username = os.environ.get('WDUSER')
-    password = os.environ.get('WDPASSWORD')
-    # updated to get start date as a Monday and end date as a Friday (will set up this script to run weekly on Fridays)
-    
-    myHostname = os.environ.get('SFTP_HOST')
-    myUsername = os.environ.get('SFTP_USER')
-    myPassword = os.environ.get('SFTP_PASSWORD')
-    
-    sender = 'do_not_reply@chelsea.com'
-    recipients = ['cwymer@unum.com']
+    # ---- Configuration from environment ----
+    wd_username = os.environ['WD_USERNAME']
+    wd_password = os.environ['WD_PASSWORD']
+    report_url = os.environ['WD_REPORT_URL']
+
+    sftp_host = os.environ['SFTP_HOST']
+    sftp_user = os.environ['SFTP_USER']
+    sftp_password = os.environ['SFTP_PASSWORD']
+    sftp_remote_dir = os.environ.get('SFTP_REMOTE_DIR', '/Home/account/Out/')
+
+    output_filename = os.environ.get('OUTPUT_FILENAME', 'exit_survey_participants.csv')
+    email_sender = os.environ.get('EMAIL_SENDER', 'noreply@example.com')
+    email_recipients = os.environ.get('EMAIL_RECIPIENTS', '').split(',')
+
+    lookback = int(os.environ.get('LOOKBACK_DAYS', '4'))
+    lookforward = int(os.environ.get('LOOKFORWARD_DAYS', '0'))
+
+    start_dt = (date.today() - timedelta(lookback)).strftime('%Y-%m-%d')
+    end_dt = (date.today() + timedelta(lookforward)).strftime('%Y-%m-%d')
+
     subject = 'Exit Survey Job Completed'
-    body = 'Job # Exit Survey Completed!'
-    # updated sender section for exit survey
-    
-    try:
-        print('pulling reports now....')
-        exit_df = wd_report_pull(us_exit_url_generator(start_dt, end_dt), username, password)
-        print('exit report pulled...')
+    body = 'Exit survey automation completed successfully.'
 
-        exit_df['Exit Survey Launch Date'] = (date.today()).strftime('%m-%d-%Y')
-        exit_df = exit_df.drop(columns=['Survey_Launch_Date'])
-        exit_df = exit_df.rename(columns={"FirstName": "First Name", "LastName": "Last Name", "Unique_Identifier":"Unique Identifier","Employee_ID":"Employee ID", "UserName":"User Name",
-                              "Supervisory_Organization":"Supervisory Organization", "Business_Area":"Business Area", "Profile_Area_Division":"Profile Area Division",
-                              "Consolidated_Area":"Consolidated Area","Hire_Date":"Hire Date","termination_date":"Termination Date","Termination_Reason":"Termination Reason",
-                              "Job_Profile":"Job Profile", "Time_in_Job_Profile":"Time in Job Profile", "Job_Level":"Job Level", "Ethnicity_Generic":"Ethnicity Generic", 
-                              "Worker_has_a_Disability":"Worker has a Disability", "Worker_is_a_Veteran":"Worker is a Veteran","Potential_Rating":"Potential Rating",
-                              })
-        exit_df = exit_df.set_index('First Name')
-        exit_df.head()
-        exit_df.to_csv('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\exit_survey_participants.csv')
-        print('CSV Created!')
-        
-    except Exception as e:
-        print('\nWD Report pull failed!')
-        subject = 'Job Failed!'
-        body = print('Job Failed!')
-        UnumEmail.send_email(sender, recipients, subject, body, file_attached = False)
-        print(str(e))
-        sys.exit()
-    
+    # ---- Step 1: Pull report from Workday ----
     try:
-        print('Begin File Transfer...')
-        sftp_transfer(myUsername, myPassword, myHostname)
-        
-    except Exception as e:
-        print('\nFile transfer incomplete!')
-        print(str(e))
-        subject = 'Job Failed!'
-        body = 'Job Failed!'
-        UnumEmail.send_email(sender, recipients, subject, body, file_attached = True, attachment = 'exit_survey_participants.csv', attach_path = './exit_survey_participants.csv')
-        sys.exit()
-        
-    os.remove('C:\\Users\\hr_automations\\UUS_PC_PeopleAnalytics_Automation\\Python_Jobs\\exit_survey_participants.csv')
-    print('file transfer complete!')
+        print('Pulling Workday report...')
+        url = build_report_url(report_url, start_dt, end_dt)
+        df = pull_workday_report(url, wd_username, wd_password)
+        print(f'Report pulled: {len(df)} rows')
 
-    UnumEmail.send_email(sender, recipients, subject, body, file_attached = False)
-    print('email sent!')
-    ()
+        # Add launch date column
+        df['Exit Survey Launch Date'] = date.today().strftime('%m-%d-%Y')
+
+        # Drop original launch date if present
+        if 'Survey_Launch_Date' in df.columns:
+            df = df.drop(columns=['Survey_Launch_Date'])
+
+        # Rename columns for survey platform
+        existing_renames = {k: v for k, v in DEFAULT_COLUMN_RENAMES.items() if k in df.columns}
+        df = df.rename(columns=existing_renames)
+
+        # Write to temp CSV
+        tmp_dir = tempfile.mkdtemp()
+        local_path = os.path.join(tmp_dir, output_filename)
+        df.to_csv(local_path, index=False)
+        print('CSV created.')
+
+    except Exception as e:
+        print(f'\nWorkday report pull failed: {e}')
+        send_email(email_sender, email_recipients, 'Exit Survey Job Failed',
+                   f'Exit survey automation failed during report pull:\n{e}')
+        sys.exit(1)
+
+    # ---- Step 2: SFTP upload ----
+    try:
+        print('Beginning SFTP transfer...')
+        sftp_upload(sftp_host, sftp_user, sftp_password,
+                    sftp_remote_dir, local_path, output_filename)
+        print('SFTP transfer complete.')
+    except Exception as e:
+        print(f'\nSFTP transfer failed: {e}')
+        send_email(email_sender, email_recipients, 'Exit Survey Job Failed',
+                   f'Exit survey automation failed during SFTP transfer:\n{e}',
+                   attachment_name=output_filename, attachment_path=local_path)
+        sys.exit(1)
+
+    # ---- Step 3: Cleanup and notify ----
+    os.remove(local_path)
+    send_email(email_sender, email_recipients, subject, body)
+    print('Notification email sent. Done.')
+
 
 if __name__ == '__main__':
     main()
-
-
-
