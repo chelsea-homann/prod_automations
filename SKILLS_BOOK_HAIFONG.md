@@ -193,8 +193,8 @@ skiprows=lambda x: x in 這些列號、header=0 讀取；未設定則正常讀�
 ```
 
 ### 4.2 產生對局配對／編排表
-**用途：** 依賽制（**單淘汰**＝海峰盃形式、**瑞士制**、**循環賽**）由參賽名冊產生每輪配對表。
-**對應程式：** 新增 `tournament.py`（可用下方提示語產生）
+**用途：** 依賽制（**單淘汰**＝海峰盃形式、**瑞士制**、**循環賽**）由參賽名冊產生每輪配對表，並依段級位自動算出**讓子**（弱方執黑）。
+**對應程式：** `skills/tournament.py` → `pair_round()` / `pair_round_df()`（已附完整可執行程式與自我測試：`python skills/tournament.py`）
 
 ```text
 請寫一個圍棋賽事配對模組，輸入是含「姓名、段級位、積分」的參賽 DataFrame，
@@ -206,8 +206,8 @@ skiprows=lambda x: x in 這些列號、header=0 讀取；未設定則正常讀�
 ```
 
 ### 4.3 處理對局成績
-**用途：** 收回每輪結果，計算勝負、累積積分與名次，產出成績榜。
-**對應程式：** `transform.py` + 新增成績彙總邏輯
+**用途：** 收回每輪結果，計算勝負、累積積分與名次（含 SOS 對手分破同分），產出成績榜。
+**對應程式：** `skills/tournament.py` → `update_standings()` / `standings_df()`
 
 ```text
 寫一段成績處理：輸入每輪結果（桌號、黑方、白方、勝方），
@@ -400,7 +400,8 @@ https://notify-api.line.me/api/notify，token 讀環境變數；在成功/失敗
 | 1.3, 5.2 | `skills/polling_export.py` |
 | 2.1–2.5 | `skills/transform.py` |
 | 3.1–3.3 | `skills/sftp_transfer.py` |
-| 4.1–4.4 | `report_puller.py` + `transform.py` + `sftp_transfer.py`（＋自建 `tournament.py`） |
+| 4.2, 4.3 | `skills/tournament.py`（配對／成績，含自我測試） |
+| 4.1, 4.4 | `report_puller.py` + `transform.py` + `sftp_transfer.py` + `tournament.py` |
 | 5.3, 6.1, 6.2, 6.3 | `email_notification.py` |
 | 7.1–7.3 | `run_automation.bat` |
 | 7.4 | `skills/retry.py` |
@@ -435,7 +436,8 @@ https://notify-api.line.me/api/notify，token 讀環境變數；在成功/失敗
 - **強調資安**（第八章）：學員與家長個資不可外流，密碼一律放 `config.env`。
 - **示範改一個提示語**：把某技能的 `<占位字>` 換成真實值，貼給 AI 助理產生程式，建立信心。
 - **建立小型清單**：把棋院實際要自動化的作業（報名、編排、成績、問卷、通知）逐項對到本手冊技能編號。
-- **延伸方向**：賽事配對 `tournament.py`（技能 4.2）與 LINE 通知（技能 6.3 延伸）是最值得棋院自建的兩塊。
+- **賽事配對已附程式**：`skills/tournament.py`（技能 4.2/4.3）可直接執行 `python skills/tournament.py` 看示範；接手後依棋院賽制微調即可。
+- **延伸方向**：LINE 通知（技能 6.3 延伸）是最值得棋院再自建的一塊。
 
 ---
 
