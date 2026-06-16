@@ -1,0 +1,5 @@
+# Runtime dependencies for prod_automations scripts and the skills/ package.
+pandas>=1.3
+numpy>=1.21
+requests>=2.25
+paramiko>=2.9
